@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>水準野帳 Pro (行削除付)</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; margin: 0; padding: 10px; background: #f0f2f5; font-size: 13px; color: #333; padding-bottom: 40px; }
+        .card { background: white; border-radius: 10px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .tabs { display: flex; margin-bottom: 12px; border-bottom: 2px solid #ddd; }
+        .tab { flex: 1; padding: 8px; text-align: center; cursor: pointer; font-weight: bold; color: #666; }
+        .tab.active { color: #1a73e8; border-bottom: 3px solid #1a73e8; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
+        th, td { border: 1px solid #ddd; padding: 5px 2px; text-align: center; overflow: hidden; }
+        th { background: #1a73e8; color: white; font-size: 0.6rem; }
+        input { width: 85%; border: 1px solid #ccc; font-size: 1rem; text-align: right; padding: 4px; border-radius: 4px; }
+        .readonly { background: #f9f9f9; color: #000; border: 1px solid #eee; font-weight: bold; }
+        
+        /* 削除ボタンのスタイル */
+        .del-btn { background: #ff4d4d; color: white; border: none; border-radius: 4px; padding: 5px 8px; font-size: 0.8rem; cursor: pointer; }
+        
+        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .config-grid label { font-size: 0.7rem; color: #666; }
+        
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        button { padding: 12px; font-size: 0.9rem; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .add-btn { background: #34a853; color: white; }
+        .check-btn { background: #1a73e8; color: white; }
+        .csv-btn { background: #fbbc05; color: #333; grid-column: span 2; margin-top: 5px; }
+        
+        #result-area { margin-top: 15px; padding: 12px; border-radius: 8px; display: none; line-height: 1.6; }
+        .pass { background: #e6f4ea; border: 1px solid #34a853; color: #1e7e34; }
+        .fail { background: #fce8e6; border: 1px solid #ea4335; color: #c5221f; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('outward')">往路</div>
+        <div class="tab" onclick="switchTab('return')">復路</div>
+    </div>
+
+    <div class="config-grid">
+        <div><label>往復総距離 S (km)</label><input type="number" id="total-s" value="0.2" step="0.01"></div>
+        <div><label>制限係数 (mm√S)</label>
+            <select id="limit-coef">
+                <option value="2.5">2.5</option><option value="5">5</option><option value="10">10</option><option value="20" selected>20</option>
+            </select>
+        </div>
+        <div style="grid-column: span 2;"><label>既知点標高成果 (m)</label>
+            <input type="number" id="base-gh" value="10.000" step="0.001" style="background:#fff9e6;">
+        </div>
+    </div>
+
+    <!-- 往路 -->
+    <div id="outward-view">
+        <table id="table-out">
+            <thead><tr><th style="width:18%">測点</th><th>BS</th><th>IH</th><th>FS</th><th>GH</th><th style="width:12%">消</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td><input type="text" value="BM.A" class="pname"></td>
+                    <td><input type="number" step="0.001" class="bs" placeholder="0.0" oninput="calc('out')"></td>
+                    <td><input type="number" class="ih readonly" readonly tabindex="-1"></td>
+                    <td>-</td>
+                    <td><input type="number" step="0.001" class="gh" placeholder="0.0" oninput="calc('out')"></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="btn-group">
+            <button class="add-btn" onclick="addRow('out')">行追加</button>
+            <button class="check-btn" onclick="showCheck()">判定</button>
+            <button class="csv-btn" onclick="exportCSV('out')">往路CSV</button>
+        </div>
+    </div>
+
+    <!-- 復路 -->
+    <div id="return-view" style="display:none;">
+        <table id="table-ret">
+            <thead><tr><th style="width:18%">測点</th><th>BS</th><th>IH</th><th>FS</th><th>GH</th><th style="width:12%">消</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td><input type="text" value="BM.B" class="pname"></td>
+                    <td><input type="number" step="0.001" class="bs" placeholder="0.0" oninput="calc('ret')"></td>
+                    <td><input type="number" class="ih readonly" readonly tabindex="-1"></td>
+                    <td>-</td>
+                    <td><input type="number" step="0.001" class="gh" placeholder="0.0" oninput="calc('ret')"></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="btn-group">
+            <button class="add-btn" onclick="addRow('ret')">行追加</button>
+            <button class="check-btn" onclick="showCheck()">判定</button>
+            <button class="csv-btn" onclick="exportCSV('ret')">復路CSV</button>
+        </div>
+    </div>
+
+    <div id="result-area"></div>
+</div>
+
+<script>
+    function switchTab(type) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        if(event) event.target.classList.add('active');
+        document.getElementById('outward-view').style.display = (type === 'outward') ? 'block' : 'none';
+        document.getElementById('return-view').style.display = (type === 'return') ? 'block' : 'none';
+    }
+
+    function calc(mode) {
+        const tableId = mode === 'out' ? 'table-out' : 'table-ret';
+        const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+        let lastIH = null;
+        rows.forEach((row, index) => {
+            const bs = getVal(row, '.bs'); const fs = getVal(row, '.fs');
+            const ghInput = row.querySelector('.gh'); const ihInput = row.querySelector('.ih');
+            if (index === 0) {
+                const initialGH = parseFloat(ghInput.value);
+                if (!isNaN(initialGH) && bs !== null) { lastIH = initialGH + bs; ihInput.value = lastIH.toFixed(3); }
+            } else {
+                if (lastIH !== null && fs !== null) {
+                    const currentGH = lastIH - fs; ghInput.value = currentGH.toFixed(3);
+                    if (bs !== null) { lastIH = currentGH + bs; ihInput.value = lastIH.toFixed(3); }
+                    else { ihInput.value = ""; lastIH = null; }
+                } else { ghInput.value = ""; ihInput.value = ""; lastIH = null; }
+            }
+        });
+    }
+
+    function getVal(row, sel) { const v = row.querySelector(sel)?.value; return (v !== "" && v !== undefined) ? parseFloat(v) : null; }
+
+    function addRow(mode) {
+        const tableId = mode === 'out' ? 'table-out' : 'table-ret';
+        const tbody = document.querySelector(`#${tableId} tbody`);
+        const newRow = tbody.insertRow();
+        newRow.innerHTML = `<td><input type="text" placeholder="No." class="pname"></td>
+            <td><input type="number" step="0.001" class="bs" placeholder="0.0" oninput="calc('${mode}')"></td>
+            <td><input type="number" class="ih readonly" readonly tabindex="-1"></td>
+            <td><input type="number" step="0.001" class="fs" placeholder="0.0" oninput="calc('${mode}')"></td>
+            <td><input type="number" class="gh readonly" readonly tabindex="-1"></td>
+            <td><button class="del-btn" onclick="removeRow(this, '${mode}')">×</button></td>`;
+    }
+
+    function removeRow(btn, mode) {
+        if(confirm('この行を削除しますか？')) {
+            const row = btn.parentNode.parentNode;
+            row.parentNode.removeChild(row);
+            calc(mode); // 削除後に再計算
+        }
+    }
+
+    function showCheck() {
+        const baseGH = parseFloat(document.getElementById('base-gh').value);
+        const retGHs = Array.from(document.querySelectorAll('#table-ret .gh')).map(i => parseFloat(i.value) || 0).filter(v => v !== 0);
+        const resultArea = document.getElementById('result-area');
+        resultArea.style.display = 'block';
+        
+        const S = parseFloat(document.getElementById('total-s').value) || 0.1;
+        const K = parseFloat(document.getElementById('limit-coef').value);
+        const limitMm = K * Math.sqrt(S);
+
+        if (retGHs.length >= 1) {
+            const finalGH = retGHs[retGHs.length - 1];
+            const closureErrorMm = (finalGH - baseGH) * 1000;
+            const isPass = Math.abs(closureErrorMm) <= limitMm;
+            resultArea.className = isPass ? 'pass' : 'fail';
+            resultArea.innerHTML = `<strong>【判定】</strong><br>閉合差: <b>${closureErrorMm.toFixed(1)} mm</b><br>許容値: ±${limitMm.toFixed(1)} mm<br>判定: <b>${isPass ? '合格' : '不合格'}</b>`;
+        } else {
+            alert("復路のデータがありません");
+        }
+    }
+
+    function exportCSV(mode) {
+        const tableId = mode === 'out' ? 'table-out' : 'table-ret';
+        let csv = "\uFEFF測点,BS,IH,FS,GH\n";
+        document.querySelectorAll(`#${tableId} tbody tr`).forEach(row => {
+            const data = [row.querySelector('.pname').value, row.querySelector('.bs')?.value || "", row.querySelector('.ih').value || "", row.querySelector('.fs')?.value || "", row.querySelector('.gh').value || ""];
+            csv += data.join(",") + "\n";
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `水準野帳_${mode}.csv`;
+        link.click();
+    }
+</script>
+</body>
+</html>
